@@ -27,7 +27,7 @@ def load_data(file_path):
     return df
 
 
-# Load the CSV data once
+# Load the CSV data once from an Excel file
 file_path = "./data/2024_svk_se.xlsx"
 
 df_xlsx_cleaned = pd.read_excel(file_path, sheet_name="Förb + prod i Sverige", skiprows=6)
@@ -153,12 +153,12 @@ def run_simulation(charging_profile, base_df, scenario_name="Default"):
 
 
 # =============================================================================
-# 4. Scenario Testing Tool (Updated with Load Duration Diagram and Demand Profiles)
+# 4. Scenario Testing Tool (Without Visualizations)
 # =============================================================================
 
 def run_scenarios(scenarios, base_df):
     """
-    Run multiple simulation scenarios and visualize results.
+    Run multiple simulation scenarios without visualizations.
 
     Parameters:
       - scenarios: a dictionary where keys are scenario names and values are 
@@ -169,15 +169,29 @@ def run_scenarios(scenarios, base_df):
       A dictionary mapping scenario names to their simulation results.
     """
     results = {}
-    df_list = []  # To store DataFrames from each simulation run for combined plotting
-
     for scenario_name, charging_profile in scenarios.items():
         print(f"Running scenario: {scenario_name}")
         res = run_simulation(charging_profile, base_df, scenario_name=scenario_name)
         results[scenario_name] = res
-        df_list.append(res["df"])
+    return results
 
-    # Visualization: Average Clearing Price Across Scenarios
+
+# =============================================================================
+# 5. Visualization Function (Based on Results)
+# =============================================================================
+
+def visualize_results(results):
+    """
+    Create visualizations based on the simulation results.
+
+    Parameters:
+      - results: dictionary mapping scenario names to simulation results.
+    """
+    # Combine all scenario DataFrames
+    df_list = [res["df"] for res in results.values()]
+    combined_df = pd.concat(df_list)
+
+    # 5.1: Average Clearing Price Across Scenarios
     plt.figure(figsize=(8, 5))
     scenario_names = list(results.keys())
     avg_prices = [results[name]["average_clearing_price"] for name in scenario_names]
@@ -188,7 +202,7 @@ def run_scenarios(scenarios, base_df):
     plt.grid(axis='y', linestyle="--", alpha=0.7)
     plt.show()
 
-    # Visualization: Total Annual Profits per Energy Asset Across Scenarios
+    # 5.2: Total Annual Profits per Energy Asset Across Scenarios
     profit_data = {}
     for scenario_name, res in results.items():
         profits = res["total_profits"]
@@ -204,8 +218,7 @@ def run_scenarios(scenarios, base_df):
     plt.grid(axis='y', linestyle="--", alpha=0.7)
     plt.show()
 
-    # Visualization: Clearing Price Over Time per Scenario
-    combined_df = pd.concat(df_list)
+    # 5.3: Clearing Price Over Time per Scenario
     plt.figure(figsize=(12, 6))
     sns.lineplot(data=combined_df, x="Timestamp", y="Clearing Price (SEK/MWh)", hue="Scenario", palette="tab10")
     plt.xlabel("Timestamp")
@@ -215,7 +228,7 @@ def run_scenarios(scenarios, base_df):
     plt.grid(True)
     plt.show()
 
-    # Visualization: Total Load Over Time per Scenario
+    # 5.4: Total Load Over Time per Scenario
     plt.figure(figsize=(12, 6))
     sns.lineplot(data=combined_df, x="Timestamp", y="Total Load [MWh]", hue="Scenario", palette="tab10")
     plt.xlabel("Timestamp")
@@ -225,14 +238,14 @@ def run_scenarios(scenarios, base_df):
     plt.grid(True)
     plt.show()
 
-    # Visualization: Load Duration Diagram per Scenario (Total Load)
+    # 5.5: Load Duration Diagram per Scenario (Total Load)
     plt.figure(figsize=(12, 6))
     for scenario_name, res in results.items():
         df = res["df"]
         # Sort total load values in descending order
         sorted_load = df["Total Load [MWh]"].sort_values(ascending=False).reset_index(drop=True)
-        # Create a normalized time index (as percentage of hours)
-        time_fraction = (sorted_load.index + 1) / len(sorted_load) * 100  # from 0 to 100%
+        # Create a normalized time index (percentage of hours)
+        time_fraction = (sorted_load.index + 1) / len(sorted_load) * 100
         plt.plot(time_fraction, sorted_load, label=scenario_name)
     plt.xlabel("Percentage of time load is exceeded (%)")
     plt.ylabel("Total Load (MWh)")
@@ -241,7 +254,7 @@ def run_scenarios(scenarios, base_df):
     plt.grid(True)
     plt.show()
 
-    # New Visualization: Average Hourly Demand Profiles per Scenario for Total Load and Truck Charging Demand
+    # 5.6: Average Hourly Demand Profiles per Scenario for Total Load and Truck Charging Demand
     # Create an 'Hour' column based on the Timestamp
     combined_df['Hour'] = combined_df['Timestamp'].dt.hour
     # Group by Scenario and Hour, and compute the average Total Load
@@ -256,7 +269,6 @@ def run_scenarios(scenarios, base_df):
     sns.lineplot(data=avg_total_profile, x='Hour',
                  y='Total Load [MWh]', hue='Scenario', palette="tab10", marker="o", ax=axes[0])
     axes[0].set_title("Average Hourly Total Load Profile per Scenario")
-    axes[0].set_xlabel("")
     axes[0].set_ylabel("Total Load (MWh)")
     axes[0].set_xticks(range(0, 24))
     axes[0].grid(True)
@@ -272,15 +284,10 @@ def run_scenarios(scenarios, base_df):
     plt.tight_layout()
     plt.show()
 
-    return results
-
 
 # =============================================================================
-# 5. Define and Run Scenarios
+# 6. Define and Run Scenarios
 # =============================================================================
-
-
-max_p = 5000  # Peak power (MWh at the hour with factor 1.0)
 
 # Base profile factors (24-hour pattern)
 base_factors = np.array([
@@ -291,29 +298,20 @@ base_factors = np.array([
     0.25, 0.25, 0.40, 0.45,
     0.50, 0.50, 0.55, 0.60
 ])
-
-# Create the base charging profile (in MWh each hour)
+max_p = 5000  # Peak power (MWh at the hour with factor 1.0)
 base_charging_profile = base_factors * max_p
 
 # Compute total daily energy from the base profile
 base_total_daily = base_charging_profile.sum()
-
-# Compute the average power needed each hour to match the same total
 average_power = base_total_daily / 24.0
-
-# Build a uniform 24-hour profile that matches the total daily energy
 uniform_charging_profile = np.full(24, average_power)
-
 
 # High Demand scenario: 50% increase in charging demand
 high_demand_profile = base_charging_profile * 2
-
 # Low Demand scenario: 25% reduction in charging demand
 low_demand_profile = base_charging_profile * 0.75
-
 # No charging demand scenario
 no_demand_profile = base_charging_profile * 0
-
 
 # Assemble scenarios into a dictionary
 scenarios = {
@@ -324,5 +322,11 @@ scenarios = {
     "Uniform charging profile": uniform_charging_profile,
 }
 
-# Run all scenarios and visualize the results
+# Run all scenarios (without producing plots)
 results = run_scenarios(scenarios, base_df)
+
+# =============================================================================
+# 7. Visualize Results (After Running Scenarios)
+# =============================================================================
+
+visualize_results(results)
