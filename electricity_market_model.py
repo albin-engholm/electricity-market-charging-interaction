@@ -260,10 +260,21 @@ night_charging_profile = np.array([
     1, 1, 1, 1
 ])
 
+extreme_case_profile = np.array([
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    1, 0, 0, 0,
+    0, 0, 0, 0
+])
+
+
 annual_charging_energy_target = 5280000  # Assumed annual total charged energy(5.28 GWh)
 
 annual_scaling_base = annual_charging_energy_target/sum(base_charging_profile*365)
 annual_scaling_night = annual_charging_energy_target/sum(night_charging_profile*365)
+annual_scaling_extreme = annual_charging_energy_target/sum(extreme_case_profile*365)
 
 base_charging_profile = base_charging_profile*annual_scaling_base
 annual_charging_energy_base = sum(base_charging_profile*365)
@@ -272,6 +283,11 @@ print(f"Total annual charging energy base: {annual_charging_energy_base}")
 night_charging_profile = night_charging_profile*annual_scaling_night
 annual_charging_energy_night = sum(night_charging_profile*365)
 print(f"Total annual charging energy night: {annual_charging_energy_night}")
+
+extreme_case_profile = extreme_case_profile*annual_scaling_extreme
+annual_charging_energy_extreme = sum(extreme_case_profile*365)
+print(f"Total annual charging energy extreme: {annual_charging_energy_extreme}")
+
 
 # Compute total daily energy from the base profile
 base_total_daily = base_charging_profile.sum()
@@ -288,6 +304,7 @@ scenarios = {
     "Night": night_charging_profile,
     "No charging": no_demand_profile,
     "Uniform ": uniform_charging_profile,
+    "Extreme": extreme_case_profile
 }
 
 
