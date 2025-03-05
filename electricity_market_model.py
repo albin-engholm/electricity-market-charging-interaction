@@ -310,7 +310,7 @@ scenarios = {
 
 # Run Scenarios
 results = run_scenarios(scenarios, energy_market_df)
-
+#%% 
 # =============================================================================
 # 7. Visualize Results
 # =============================================================================
@@ -518,5 +518,18 @@ def visualize_results(results):
     plt.grid(True)
     plt.show()
 
+    # ================================
+    # 11. boxplot clearing price
+    # ================================
+
+    plt.figure(figsize=(12, 6))
+    sns.boxplot(data=combined_df, y="Clearing Price (SEK/MWh)", hue="Scenario",
+                x="Scenario",
+                palette="tab10")
+    plt.xlabel("Clearing Price (SEK/MWh)")
+    plt.title("Clearing Price Distribution per Scenario")
+    plt.grid(True)
+    plt.show()
+    
 
 visualize_results(results)
